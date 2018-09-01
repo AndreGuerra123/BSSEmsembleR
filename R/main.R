@@ -15,6 +15,12 @@
 #' @importFrom  plumber plumb
 #' @importFrom  mongolite mongo
 #' @importFrom  mongolite gridfs
+#' @import jsonlite
+#' @import summarytools
+#' @import htmltools
+#' @import Rook
+#' @import caret
+#' @import caretEnsemble
 #'
 #' @export
 startServer <- function(port=8080,https=F,url='mongodb://localhost',options=NULL) {
@@ -34,7 +40,12 @@ startServer <- function(port=8080,https=F,url='mongodb://localhost',options=NULL
   gridFS <- mongolite::gridfs(prefix="fs",db="bssemsembler",url=url,options=options)
   assign('gridFS',gridFS,envir = .GlobalEnv)
 
-  r <- plumber::plumb(system.file('plumber.R',package = "BSSEmsembleR"))
+
+  assign('BSSEPID',Sys.getpid(),envir=.GlobalEnv)
+  r <- plumber::plumb(system.file('plumber.R',package = "BSSEnsembleR"))
   r$run(port=port)
 }
 #
+#killServer <- function(){
+  #bssl <- system("tskill",arg=.GlobalEnv$BSSEPID, stout=TRUE, sterr = FALSE)
+#}

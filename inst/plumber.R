@@ -1,3 +1,6 @@
+#* @apiTitle BSSEmsembleR
+#* @apiDescription a plumber back-end for real-time emsemble modelling
+
 # ------ Imports -------- #
 
 
@@ -12,6 +15,17 @@ queryByUserID <- function(obid){
   return(queryByID(obid,field='user'))
 }
 
+getSafe<- function(x, i, default, is.valid=function(x){T}) {
+  i <- match(i, names(x))
+  if (is.na(i)) {
+    default
+  } else if(!is.valid(x[[i]])) {
+    default
+  }else{
+    x[[i]]
+  }
+}
+
 saveUserFileID <- function(col,userid,fileid){
   obid <- OBID()
   toinsert<-paste('{"_id":{"$oid":"',obid,'"},"user":{"$oid":"',userid,'"},"file":{"$oid":"',fileid,'"}}',sep="")
@@ -19,15 +33,60 @@ saveUserFileID <- function(col,userid,fileid){
   return(obid)
 }
 
-Multipart2GridFS <- function(req,grid){
-  formContents <- Rook::Multipart$parse(req)
-  if(!grepl(".RData",formContents$file$filename))
+MultipartDataset2GridFS <- function(req,grid){
+  form <- Rook::Multipart$parse(req)
+  if(!grepl(".RData",form$file$filename))
     stop("Input file is not a valid .RData file.")
   else{
-    upload <-grid$write(formContents$file$tempfile,formContents$file$filename)
+    upload <-grid$write(form$file$tempfile,form$file$filename)
     return(upload$id)
   }
 
+}
+
+MultipartModel2GridFS <- function(req,grid){
+  form <- Rook::Multipart$parse(req)
+  if(!grepl(".RDS",form$file$filename))
+    stop("Input file is not a valid .RDS file.")
+  else{
+    upload <-grid$write(form$file$tempfile,form$file$filename)
+    return(upload$id)
+  }
+
+}
+
+getConfig <- function(req,userid){
+  form <- jsonlite::fromJSON(req$postBody)
+  obid<-OBID()
+  fields<-list("_id" = list("$oid" = jsonlite::unbox(obid)),"user" = list("$oid" = jsonlite::unbox(userid)))
+  fields$methods<-getSafe(form,'methods','base',function(x){is.character(x)})
+  fields$metric<-getSafe(form,'metric','rmse',function(x){is.character(x) && length(x)==1})
+  fields$maximise<-getSafe(form,'maximise',FALSE,function(x){is.logical(x) && length(x)==1})
+  fields$tune_length<-getSafe(form,'tune_length',5,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$preprocess<-getSafe(form,'preprocess',c('nzv'),function(x){all(is.character(x))})
+  fields$thresh<-getSafe(form,'thresh',0.95,function(x){is.numeric(x) && length(x)==1 && x>0 && x<1})
+  fields$pca_comp<-getSafe(form,'pca_comp',NA,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$ica_comp<-getSafe(form,'ica_comp',5,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$k<-getSafe(form,'k',5,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$fudge<-getSafe(form,'fudge',0.2,function(x){is.numeric(x) && length(x)==1 && x>0 && x<1})
+  fields$num_unique<-getSafe(form,'num_unique',3,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$freq_cut<-getSafe(form,'freq_cut',19,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$unique_cut<-getSafe(form,'unique_cut',10,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$cut_off<-getSafe(form,'cut_off',0.9,function(x){is.numeric(x) && length(x)==1 && x>0 && x<1})
+  fields$cv_method<-getSafe(form,'cv_method','repeatedcv',function(x){is.character(x) && length(x)==1})
+  fields$number<-getSafe(form,'number',5,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$repeats<-getSafe(form,'repeats',5,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$p<-getSafe(form,'p',0.75,function(x){is.numeric(x) && length(x)==1 && x>0 && x<1})
+  fields$search<-getSafe(form,'search','grid',function(x){is.character(x) && length(x)==1 && x %in% c('grid','random')})
+  fields$initial_window<-getSafe(form,'initial_window',NA,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$horizon<-getSafe(form,'horizon',10,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$fixed_window<-getSafe(form,'fixed_window',TRUE,function(x){is.logical(x) && length(x)==1})
+  fields$skip<-getSafe(form,'skip',0,function(x){is.integer(x) && length(x)==1})
+  fields$adaptive_min<-getSafe(form,'adaptive_min',5,function(x){is.integer(x) && length(x)==1 && x>0})
+  fields$adaptive_alpha<-getSafe(form,'adaptive_alpha',0.05,function(x){is.numeric(x) && length(x)==1 && x>0 && x<1})
+  fields$adaptive_method<-getSafe(form,'adaptive_method','gls',function(x){is.character(x) && length(x)==1 && x %in% c('gls','BT')})
+  fields$adaptive_complete<-getSafe(form,'adaptive_complete',TRUE,function(x){is.logical(x) && length(x)==1})
+  return(fields)
 }
 
 getFileGridFS <- function(grid,fileID){
@@ -48,49 +107,34 @@ getFileIDByObjectID<- function(col,obid){
   return(col$find(queryByID(obid),'{"file":1,"_id":0}')$file)
 }
 
-worst<-function(warn,err){
-  if(err != "" ){
-    return(err)
-  }else if(warn !=""){
-    return(warn)
-  }else{
-    return("")
-  }
-}
-
 getDatasetValidation <- function(file){
 
   tryCatch({
 
     out<-list()
-
     load(file)
     X<-as.data.frame(X)
     Y<-as.data.frame(Y)
 
     #X Validation
-    stopifnot(ncol[X]<3)
-    if(ncol[X]<10){warning('X contains insufficient number of predictors (<10) to develop a valid model.')}
-    stopifnot(nrow[X]<1)
+    stopifnot(ncol(X)>2)
+    stopifnot(nrow(X)>0)
     stopifnot(class(X[,1])=="integer")
     stopifnot(class(X[,2])=="factor")
     stopifnot(all(sapply(X[,3:ncol(X)], is.numeric)))
 
     #Y validation
-    stopifnot(ncol[Y]<1)
-    stopifnot(nrow[Y]<1)
-    stopifnot(class(Y[,1])=="numeric")
+    stopifnot(ncol(Y)>0)
+    stopifnot(nrow(Y)>0)
+    stopifnot(class(Y[,1]) %in% c("numeric","integer"))
 
     #mutual validation
-    stopifnot(ncol(X)==ncol(y))
+    stopifnot(nrow(X)==nrow(Y))
     complete_observations<-sum((complete.cases(X) & complete.cases(Y)))
-    if(complete_observations<50){warning('X and Y contain insufficient number of complete observations (<50) to develop a valid model.')}
-    stopifnot(complete_observations<1)
+    stopifnot(complete_observations>0)
     out$valid<-T
+    out$msg<-''
     return(out)
-  },
-  warning=function(w){
-    out$msg <- as.character(w)
   },
   error=function(e){
     out$valid <- F
@@ -101,22 +145,20 @@ getDatasetValidation <- function(file){
 }
 
 getHtmlSummary <- function(df){
-  st<-summarytools::dfSummary(df, round.digits = 3)
-  stv<-summarytools::view(st,method='render',transpose =T,style="rmarkdown")
-  html<-htmltools::renderTags(stv)$html
+  st<- summarytools::dfSummary(df, round.digits = 3)
+  stv<- summarytools::view(st,method='render',transpose =T,style="rmarkdown")
+  html<- htmltools::renderTags(stv)$html
   return(html)
 }
 
 getHtmlDescriptive <-function(df){
-  st<-summarytools::descr(df)
-  stv<-summarytools::view(st,method='render',transpose =T,style="rmarkdown")
-  return(htmltools::renderTags(stv)$html)
+  st<- summarytools::descr(df)
+  stv<- summarytools::view(st,method='render',transpose =T,style="rmarkdown")
+  return( htmltools::renderTags(stv)$html)
 }
 
 getHtmlBatchSummary <-function(df,cla){
-  lst <- lapply(split(df,cla),getHtmlDescriptive)
-  names(lst) <- as.character(cla)
-  return(lst)
+  lapply(split(df,cla),getHtmlDescriptive)
 }
 
 tryDo<-function(exec=function(){},end=function(){}){
@@ -140,6 +182,50 @@ getDatasetSummary <- function(file){
   lst<-list(XSummary,XBatchSummary,YSummary,YBatchSummary)
   names(lst)<-c('XSummary','XBatchSummary','YSummary','YBatchSummary')
   return(lst)
+}
+getModelSummary <-function(file){
+  props<-''
+  specs<-''
+  tryDo({model<-readRDS(file)})
+  tryDo({props<-getModelProperties(model)})
+  tryDo({specs<-getModelSpecs(model)})
+  return(list("Properties"=props,"Specifications"=specs))
+}
+getModelProperties <-function(model){
+  lst<-list()
+  if(isCaretLegacy(model)){
+    tryDo({lst$meta <- 'Caret Legacy Model'})
+    tryDo({lst$method <- model$method})
+    tryDo({lst$type <- model$modelType})
+    tryDo({lst$results <- dplyr::inner_join(model$results,model$bestTune)})
+    tryDo({lst$metric <- model$metric})
+    tryDo({lst$maximize <- model$maximize})
+    tryDo({lst$control <- model$control})
+    tryDo({lst$control$index <- NULL})
+    tryDo({lst$control$indexOut <- NULL})
+    tryDo({lst$control$seeds <- NULL})
+    tryDo({lst$preprocess <- names(model$preProcess$method)})
+    tryDo({lst$performance <- model$perfNames})
+    tryDo({lst$ylimits <- model$yLimits})
+  }else if(isCaretStack(model)){
+    lst$meta <- 'Caret Stack Model'
+    getStackProperties(list,model)
+  }else if(isCaretEnsemble(model)){
+    lst$meta <- 'Caret Ensemble Model'
+    getEnsembleProperties(list,model)
+  }else{
+    lst$meta <- "Not a valid caret legacy model, caret Ensemble or caret Stack model."
+  }
+  return(lst)
+}
+isCaretLegacy <- function(model){
+  inherits(model,"train")
+}
+isCaretStack<- function(model){
+  inherits(model,"caretStack") && !inherits(model,'caretEnsemble')
+}
+isCaretEnsemble <- function(model){
+  inherits(model,"caretEnsemble")
 }
 
 
@@ -184,23 +270,24 @@ function(userid){
 #* @param userid userid corresponding to the owner of the dataset
 #* @post /datasets/load
 function(req,userid){
-  fileid <- Multipart2GridFS(req,.GlobalEnv$gridFS)
+  fileid <- MultipartDataset2GridFS(req,.GlobalEnv$gridFS)
   saveUserFileID(.GlobalEnv$datasets,userid,fileid)
 }
 
 #* Loads configuration into Configs collection of BSSEmsembleR (as JSON object?)
 #* @param userid userid corresponding to the owner of the config
 #* @post /configs/load
-function(req,userid){ #TODO:How are we defining the models configuration.
-
-
+function(req,userid){
+  lista<-getConfig(req,userid)
+  .GlobalEnv$configs$insert(jsonlite::toJSON(lista))
+  return(lista$'_id'$'$oid')
 }
 
 #* Loads model file in BSSEmsembler
 #* @param userid userid corresponding to the owner of the model
 #* @post /models/load
 function(req,userid){
-  fileid <- Multipart2GridFS(req,.GlobalEnv$gridFS)
+  fileid <- MultipartModel2GridFS(req,.GlobalEnv$gridFS)
   saveUserFileID(.GlobalEnv$models,userid,fileid)
 }
 
@@ -216,12 +303,35 @@ function(req,userid){
 
 #* Gets dataset information in BSSEmsembler
 #* @param datasetid corresponding to the dataset which the information will be retrieved
-#* @post /datasets/info
+#* @get /datasets/info
 function(datasetid){
   fileid <- getFileIDByObjectID(.GlobalEnv$datasets,datasetid)
   file <- getFileGridFS(.GlobalEnv$gridFS, fileid)
   summary <- getDatasetSummary(file)
   validation <- getDatasetValidation(file)
   unlink(file)
-  return(list(summary,validation))
+  toreturn<-list(summary,validation)
+  names(toreturn)<-c('Summary','Validation')
+  return(toreturn)
+}
+
+#* Gets config information in BSSEmsembler
+#* @param configsid corresponding to the config document which the information will be retrieved
+#* @get /configs/info
+function(configid){
+  return(.GlobalEnv$configs$find(queryByID(configid)))
+}
+
+#* Gets model information in BSSEmsembler
+#* @param modelid corresponding to the model which the information will be retrieved
+#* @get /models/info
+function(modelsid){
+  fileid <- getFileIDByObjectID(.GlobalEnv$models,modelid)
+  file <- getFileGridFS(.GlobalEnv$gridFS, modesid)
+  summary <- getModelSummary(file)
+  validation <- getModelValidation(file)
+  unlink(file)
+  toreturn <- list(summary,validation)
+  names(toreturn)<-c('Summary','Validation')
+  return(toreturn)
 }

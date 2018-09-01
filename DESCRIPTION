@@ -1,17 +1,23 @@
-Package: BSSEmsembleR
+Package: BSSEnsembleR
 Type: Package
-Title: BioSoftSensor Emsembler
+Title: BioSoftSensor Ensembler
 Version: 0.1.0
-Author: Andre Gueerra
+Author: Andre Guerra
 Maintainer: Andre Guerra <guerraandre@hotmail.com>
-Description: A (Plumber) backend to develop and maintain emsemble models for real-time predictive modelling.
+Description: A (Plumber) backend to develop and maintain ensemble models for real-time predictive modelling.
     The use of this package requires an working installation of MongoDB. Users may change the configuration of the
     MongoDB and Plumber connection parameters at the root of the project.
 License: MIT
-Imports:
+Depends:
     mongolite,
     plumber,
-    xtable
+    jsonlite,
+    summarytools,
+    htmltools,
+    Rook,
+    caret,
+    caretEnsemble,
+    dplyr
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 6.1.0
