@@ -2,25 +2,25 @@
 % Please edit documentation in R/main.R
 \name{startServer}
 \alias{startServer}
-\title{BSSEmsembleR Server}
+\title{BSSEn sembleR Server}
 \usage{
-startServer(port = 8080, https = F, url = "mongodb://localhost",
-  options = NULL)
+startServer(port = 8080, invitation = NULL,
+  url = "mongodb://localhost", options = NULL)
 }
 \arguments{
 \item{port}{int port to bind plumber. Default: 8080}
 
-\item{https}{boolean https secure encryption. Default: False}
-
 \item{url}{str mongolite url parameter. Default: 'mongodb://localhost'}
 
 \item{options}{object mongolite options parameter. Default: None}
+
+\item{https}{boolean https secure encryption. Default: False}
 }
 \value{
 None
 }
 \description{
-Starts the BSSEmsembleR Server.
+Starts the BSSEnsembleR Server.
 }
 \examples{
 startServer()
