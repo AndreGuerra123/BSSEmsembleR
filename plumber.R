@@ -15,17 +15,8 @@ queryByID <- function(obid,field='_id'){
 queryByUserID <- function(obid){
   queryByID(obid,field='user')
 }
-queryByField<-function(obj,field){
-  q<-list(unbox(obj))
-  names(q)<-field
-  return(jsonlite::toJSON(q))
-}
-queryByUsername<-function(username){
-  queryByField(username,"username")
-}
-getUserByUsername<-function(username){
-  .GlobalEnv$users$find(queryByUsername(username),'{}')
-}
+
+
 getUserByID<-function(userid){
   .GlobalEnv$users$find(queryByID(userid),'{}')
 }
@@ -53,13 +44,6 @@ getFileGridFS <- function(grid,fileID){
   t <- tempfile()
   out <- grid$read(paste0("id:", fileID),t, progress = FALSE)
   return(t)
-}
-OBID <- function(){
-  ei <- as.hexmode(as.integer(Sys.time())) # 4-byte
-  mi <- as.hexmode(6666666) #3-byte (I don't really care about the machine suplying this)
-  pi <- as.hexmode(Sys.getpid()) # 2-byte
-  ci <- as.hexmode(sample(1048576:16777215,1)) # 3-byte
-  return(paste0(ei,mi,pi,ci))
 }
 getFileIDByObjectID<- function(col,obid){
   return(col$find(queryByID(obid),'{"file":1,"_id":0}')$file)

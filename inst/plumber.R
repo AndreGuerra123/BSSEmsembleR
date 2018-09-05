@@ -4,7 +4,28 @@
 # ---- GENERICS ------ #
 isValidString<-function(x){
   !all(is.null(x) || is.na(x) || !is.atomic(x) || identical(x,"") || !is.character(x))
+} #Done
+
+OBID <- function(){ #Done
+  ei <- as.hexmode(as.integer(Sys.time())) # 4-byte
+  mi <- as.hexmode(6666666) #3-byte (I don't really care about the machine suplying this)
+  pi <- as.hexmode(Sys.getpid()) # 2-byte
+  ci <- as.hexmode(sample(1048576:16777215,1)) # 3-byte
+  return(paste0(ei,mi,pi,ci))
 }
+
+
+assim <- function(exp,msg){
+  a<-tryCatch(exp,error=function(e){a<-as.character(e)})
+  if(!identical(a,T)){
+    if(identical(a,F)){
+      stop(paste0("Asserted that ",msg))
+    }else{
+      stop(paste0("Fail to asssert: ",msg,", cause: ",as.character(a)))
+    }
+  }
+}
+
 
 # ----- FILTERS ------ #
 
@@ -50,87 +71,50 @@ getUserByUsername<-function(username){
 }
 
 # -- HELPERS -- #
+
 createNewUser<-function(username,password){
-  newid<-OBID()
-  newhash<-bcrypt::hashpw(password)
-  .GlobalEnv$users$insert(jsonlite::toJSON(list("_id"=list("$oid" = jsonlite::unbox(newid)),"username"=username,"hash"=newhash)))
-  out<-list("_id"=newid,"hash"=newhash)
-  print(out)
+  id<-OBID()
+  hash<-bcrypt::hashpw(password)
+  .GlobalEnv$users$insert(jsonlite::toJSON(list("_id"=list("$oid" = jsonlite::unbox(id)),"username"=username,"hash"=hash)))
+  out<-list("_id"=id,"username"=username,"hash"=hash)
   return(out)
-} #Done
+} #Done #Verified
+authorizeUser<-function(user,password){
+  nrow(user) == 1 && isValidString(user$hash[[1]]) && bcrypt::checkpw(password, user$hash[[1]])
+} #Done #Verified
 
 # -- vALIDATION -- #
-# out<-list(Valid=F,Message=NULL)
-# tryCatch({
-#   out$Valid<-T
-#   out$Message<-''
-# },error=function(e){
-#   out$Valid<-F
-#   out$Message<-as.character(e)
-# })
-# print(out)
-# return(out)
 
 getRegistrationValidation <- function(body) {
-  out <- list(Valid = F, Message = NULL)
   tryCatch({
-    testit::assert('Invalid username.', {
-      isValidString(body$username)
-    })
-    testit::assert('Invalid password.', {
-      isValidString(body$password)
-    })
-    testit::assert('Invalid password confirmation.', {
-      isValidString(body$validation)
-    })
-    testit::assert('Invalid password confirmation.', {
-      body$password == body$validation
-    })
-    testit::assert('Invalid invitation key.', {
-      body$invitation == .GlobalEnv$BSSEInvitation
-    })
-    user <- getUserByUsername(body$username)
-    testit::assert('Invalid username.', {
-      length(user) == 0
-    })
-    out$Valid <- T
-    out$Message <- ''
+    assim({isValidString(body$username) == T},"username is not valid.")
+    assim({isValidString(body$password) == T},"passord is not valid")
+    assim({isValidString(body$validation) == T},"password confirmation is not valid.")
+    assim({body$password == body$validation},"passwords don't match.")
+    assim({body$invitation == .GlobalEnv$BSSEInvitation},"invitation key don't match.")
+    assim({length(getUserByUsername(body$username)) == 0},"username already exists.")
+    out <- list(Valid = T, Message = '')
+    return(out)
   }, error = function(e) {
-    out$Valid <- F
-    out$Message <- as.character(e)
+    out <- list(Valid = F, Message = e)
+    return(out)
   })
-  print(out)
-  return(out)
-} #Done
+} #Done Verified
 
 getLoginValidation <- function(body) {
-  out <- list(Valid = F, Message = NULL)
   tryCatch({
-    testit::assert('Invalid username.', {
-      isValidString(body$username)
-    })
-    testit::assert('Invalid password.', {
-      isValidString(body$password)
-    })
-    user <- getUserByUsername(body$username)
-    testit::assert('Invalid username.', {
-      length(user) != 0
-    })
-    testit::assert('Failed to retrieve hash.', {
-      isValidString()
-    })
-    testit::assert('Invalid password.', {
-      bcrypt::checkpw(body$password, user$hash[[1]])
-    })
-    out$Valid <- T
-    out$Message <- ''
+    assim({isValidString(body$username)},'username is invalid.')
+    assim({isValidString(body$password)},'password is invalid.')
+    user<-getUserByUsername(body$username);
+    assim({authorizeUser(user,body$password)},'username does not exist or password is wrong.')
+
+    out <- list(Valid = T, Message = '')
+    return(out)
   }, error = function(e) {
-    out$Valid <- F
-    out$Message <- as.character(e)
+    out <- list(Valid = F, Message = as.character(e))
+    return(out)
   })
-  print(out)
-  return(out)
-} #Done
+} #Done Verified
 
 # -- AUTHENTICATION -- #
 
@@ -142,8 +126,7 @@ function(req, res) {
   assertion <- getRegistrationValidation(body)
   if (assertion$Valid) {
     newuser <- createNewUser(body$username, body$password)
-    out <- list(userid = newuser$id,
-                token = bcrypt::hashpw(newuser$hash))
+    out <- list(userid = newuser$'_id' ,token = bcrypt::hashpw(newuser$'hash'))
     res$status <- 202
     print(out)
     return(out)
@@ -153,7 +136,7 @@ function(req, res) {
     print(out)
     return(out)
   }
-} #Done
+} #Done Verified
 
 #* Initial login validation
 #* @preempt tokenizer
