@@ -253,8 +253,8 @@ function(req,res){
 function(req,userid,token){
   val<-getTokenValidation(list('userid'=userid,'token'=token))
   if(val$Valid){
-    ids <- MultipartDataset2GridFS(req)
-    obid<-registerUserFile(.GlobalEnv$datasets,ids$userid,ids$fileid)
+    fileid <- MultipartDataset2GridFS(req)
+    obid<-registerUserFile(.GlobalEnv$datasets,userid,fileid)
     print(obid)
     return(obid)
   }else{
@@ -268,7 +268,7 @@ MultipartDataset2GridFS <- function(req,grid){
   val<-getDatasetValidation(form$file$tempfile)
   if(val$Valid){
     upload <-.GlobalEnv$gridFS$write(form$file$tempfile,form$file$filename)
-    return(list(fileid = upload$id, userid = form$userid))
+    return(upload$id)
   }else{
     stop(val$Message)
   }
