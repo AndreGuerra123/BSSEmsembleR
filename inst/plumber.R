@@ -41,7 +41,6 @@ cors <- function(res) { #Done
 tokenizer <-function(req){ #Done MUST BE VERIFIED
   body<-jsonlite::fromJSON(req$postBody)
   assertion<-getTokenValidation(body)
-  print(assertion)
   if(assertion$Valid){
     plumber::forward()
   }else{
@@ -265,7 +264,6 @@ function(req,userid,token){
   if(val$Valid){
     fileid <- MultipartDataset2GridFS(req)
     obid<-registerUserFile(.GlobalEnv$datasets,userid,fileid)
-    print(obid)
     return(obid)
   }else{
     stop(val$Message)
@@ -300,8 +298,8 @@ function(req){
 #* Gets dataset information in BSSEmsembler
 #* @post /datasets/info
 function(datasetid){
-
-  fileid <- getFileIDByObjectID(.GlobalEnv$datasets,datasetid)#done
+  body <- jsonlite::fromJSON(req$postBody)
+  fileid <- getFileIDByObjectID(.GlobalEnv$datasets,body$datasetid)#done
   file <- getFileGridFS(.GlobalEnv$gridFS, fileid)
   met<-getFileMetaInfo(fileid) #done
   sum<-getDatasetSummary(file) #done
