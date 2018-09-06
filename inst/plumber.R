@@ -250,8 +250,8 @@ function(req,res){
   body<-jsonlite::fromJSON(req$postBody)
   query<-queryByID(body$userid, field="user")
   fields<-'{"_id":1}'
-  return(list(ids=.GlobalEnv$datasets$find(query,fields)$'_id'))
-} #Done
+  return(.GlobalEnv$datasets$find(query,fields)$'_id')
+} #Done Verified
 
 # -- Load -- #
 
@@ -283,11 +283,18 @@ MultipartDataset2GridFS <- function(req){
   }else{
     stop(val$Message)
   }
-} #Done
+}
 
 
 
 #-- Delete -- #
+#* Gets dataset information in BSSEmsembler
+#* @param datasetid corresponding to the dataset which the information will be retrieved
+#* @get /datasets/info
+function(datasetid){
+  .GlobalEnv$datasets$remove(queryByID(datasetid), just_one = TRUE)
+  .GlobalEnv$gridFS$remove(datasetid)
+}
 
 
 #-- Info -- #
