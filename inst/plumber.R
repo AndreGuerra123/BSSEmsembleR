@@ -251,6 +251,7 @@ function(req,res){
 #* @param token
 #* @post /datasets/load
 function(req,userid,token){
+  browser()
   val<-getTokenValidation(list('userid'=userid,'token'=token))
   if(val$Valid){
     fileid <- MultipartDataset2GridFS(req)
@@ -262,7 +263,7 @@ function(req,userid,token){
   }
 } #Done
 
-MultipartDataset2GridFS <- function(req,grid){
+MultipartDataset2GridFS <- function(req){
   form <- Rook::Multipart$parse(req)
   assim({grepl(".RData",form$file$filename)},"Input file is not a valid .RData file.")
   val<-getDatasetValidation(form$file$tempfile)
