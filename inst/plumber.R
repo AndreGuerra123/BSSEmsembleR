@@ -261,7 +261,6 @@ function(req,res){
 #* @param token
 #* @post /datasets/load
 function(req,userid,token){
-  browser()
   val<-getTokenValidation(list('userid'=userid,'token'=token))
   if(val$Valid){
     fileid <- MultipartDataset2GridFS(req)
@@ -289,7 +288,7 @@ MultipartDataset2GridFS <- function(req){
 
 #-- Delete -- #
 #* Gets dataset information in BSSEmsembler
-#* @get /datasets/delete
+#* @post /datasets/delete
 function(req){
   body <- jsonlite::fromJSON(req$postBody)
   .GlobalEnv$datasets$remove(queryByID(body$datasetid), just_one = TRUE)
@@ -299,8 +298,7 @@ function(req){
 
 #-- Info -- #
 #* Gets dataset information in BSSEmsembler
-#* @param datasetid corresponding to the dataset which the information will be retrieved
-#* @get /datasets/info
+#* @post /datasets/info
 function(datasetid){
 
   fileid <- getFileIDByObjectID(.GlobalEnv$datasets,datasetid)#done
