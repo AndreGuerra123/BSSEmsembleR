@@ -7,19 +7,9 @@
 
 # ------ Utilities -------- #
 
-queryByID <- function(obid,field='_id'){
-  q<-list(list("$oid" = unbox(obid)))
-  names(q)<-field
-  return(jsonlite::toJSON(q))
-}
-queryByUserID <- function(obid){
-  queryByID(obid,field='user')
-}
 
 
-getUserByID<-function(userid){
-  .GlobalEnv$users$find(queryByID(userid),'{}')
-}
+
 
 getSafe<- function(x, i, default, is.valid=function(x){T}) {
   i <- match(i, names(x))
@@ -34,12 +24,7 @@ getSafe<- function(x, i, default, is.valid=function(x){T}) {
 tryDo<-function(exec=function(){},end=function(){}){
   tryCatch(exec,warning=function(w){},error=function(e){},finnaly=end)
 }
-saveUserFileID <- function(col,userid,fileid){
-  obid <- OBID()
-  toinsert<-paste0('{"_id":{"$oid":"',obid,'"},"user":{"$oid":"',userid,'"},"file":{"$oid":"',fileid,'"}}')
-  col$insert(toinsert)
-  return(obid)
-}
+
 getFileGridFS <- function(grid,fileID){
   t <- tempfile()
   out <- grid$read(paste0("id:", fileID),t, progress = FALSE)
@@ -787,44 +772,8 @@ getEnsembleModelSpecsList <- function(config){
 # -----FILTERS ------ #
 
 
-
-# -- Validation -- #
-
-#* Allow user to validate in server creating a user document (passwords should not be stored in the database)
-#* @preempt tokenizer
-#* @post /register
-function(req,res){
-  body<-jsonlite::fromJSON(req$postBody)
-  getRegistrationValidation(body)
-  newuser<-createUser(body$username,body$password)
-  return(list(userid=newuser$id,token=bcrypt::hashpw(newuser$hash)))
-}
-
-#* Initial login validation
-#* @preempt tokenizer
-#* @post /login
-function(req,res){
-  body<-jsonlite::fromJSON(req$postBody)
-  getLoginValidation(body)
-  user<-getUserByUsername(body$username)
-  return(list('userid'=user["_id"],'token'=bcrypt::hashpw(user$hash[[1]])))
-}
-
-
-
-
-
-
 # -- AVAILABLE -- #
 
-#* Get list of available datasets for a user
-#* @post /datasets/available
-function(req,res){
-  body<-jsonlite::fromJSON(req$postBody)
-  query<-queryByUserID(body$userid)
-  fields<-'{"_id":1}'
-  return(list(ids=.GlobalEnv$datasets$find(query,fields)))
-}
 
 #* Get list of available configs for a user
 #* @post /configs/available
@@ -844,18 +793,7 @@ function(userid){
   return(list(ids=.GlobalEnv$models$find(query,fields)))
 }
 
-# -- Load -- #
 
-#* Loads dataset file in BSSEmsembler
-#* @preempt tokenizer
-#* @param userid
-#* @param token
-#* @post /datasets/load
-function(req,userid,token){
-  getTokenValidation(list('userid'=userid,'token'=token))
-  ids <- MultipartDataset2GridFS(req,.GlobalEnv$gridFS)
-  saveUserFileID(.GlobalEnv$datasets,ids$userid,ids$fileid)
-}
 
 #* Loads configuration into Configs collection of BSSEmsembleR (as JSON object?)
 #* @param userid userid corresponding to the owner of the config
