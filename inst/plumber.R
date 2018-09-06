@@ -240,7 +240,7 @@ function(req,res){
   body<-jsonlite::fromJSON(req$postBody)
   query<-queryByID(body$userid, field="user")
   fields<-'{"_id":1}'
-  return(list(ids=.GlobalEnv$datasets$find(query,fields)))
+  return(list(ids=.GlobalEnv$datasets$find(query,fields))$'_id')
 } #Done
 
 # -- Load -- #
@@ -277,6 +277,43 @@ MultipartDataset2GridFS <- function(req){
 
 
 
+#-- Delete -- #
+
+
+#-- Info -- #
+
+getDatasetSummary <- function(file){
+
+  XSummary <- NULL
+  XBatchSummary <- NULL
+  YSummary <- NULL
+  YBatchSummary <- NULL
+
+  tryDo({load(file)})
+  tryDo(X<-as.data.frame(X))
+  tryDo(Y<-as.data.frame(Y))
+  tryDo({XSummary<-getHtmlSummary(X)})
+  tryDo({XBatchSummary<-getHtmlBatchSummary(X,X[,2])})
+  tryDo({YSummary<-getHtmlSummary(Y)})
+  tryDo({YSummary<-getHtmlBatchSummary(Y,X[,2])})
+  lst<-list(XSummary,XBatchSummary,YSummary,YBatchSummary)
+  names(lst)<-c('XSummary','XBatchSummary','YSummary','YBatchSummary')
+  return(lst)
+}
+getHtmlSummary <- function(df){
+  st<- summarytools::dfSummary(df, round.digits = 3)
+  stv<- summarytools::view(st,method='render',transpose =T,style="rmarkdown")
+  html<- htmltools::renderTags(stv)$html
+  return(html)
+}
+getHtmlDescriptive <-function(df){
+  st<- summarytools::descr(df)
+  stv<- summarytools::view(st,method='render',transpose =T,style="rmarkdown")
+  return( htmltools::renderTags(stv)$html)
+}
+getHtmlBatchSummary <-function(df,cla){
+  lapply(split(df,cla),getHtmlDescriptive)
+}
 
 
 

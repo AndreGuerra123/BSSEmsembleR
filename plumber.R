@@ -1,16 +1,3 @@
-#* @apiTitle BSSEnsembleR
-#* @apiDescription a plumber back-end for real-time ensemble modelling
-
-# ------ Imports -------- #
-
-
-
-# ------ Utilities -------- #
-
-
-
-
-
 getSafe<- function(x, i, default, is.valid=function(x){T}) {
   i <- match(i, names(x))
   if (is.na(i)) {
@@ -35,14 +22,6 @@ getFileIDByObjectID<- function(col,obid){
 }
 
 
-
-MultipartDataset2GridFS <- function(req,grid){
-  form <- Rook::Multipart$parse(req)
-  testit::assert("Input file is not a valid .RData file.",{!grepl(".RData",form$file$filename)})
-  getDatasetValidation(form$file$tempfile)
-  upload <-grid$write(form$file$tempfile,form$file$filename)
-  return(list(fileid = upload$id, userid = form$userid))
-}
 MultipartModel2GridFS <- function(req,grid){
   form <- Rook::Multipart$parse(req)
   if(!grepl(".RDS",form$file$filename))
@@ -74,42 +53,11 @@ getConfig <- function(configid){
   .GlobalEnv$configs$find(queryByID(configid))
 }
 
-getTokenValidation<-function(body){
-  testit::assert('Invalid security token.',{isValidString(body$userid)})
-  testit::assert('Invalid security token.',{isValidString(body$token)})
-  user <- getUserByID(body$userid)
-  testit::assert('Invalid security token',{!is.null(user)})
-  testit::assert('Invalid security token.', {bcrypt::checkpw(user$hash[[1]],body$token)})
-}
 
 classNumber <- function(x){
   return(inherits(x,'numeric') || inherits(x,'integer'))
 }
-getDatasetValidation <- function(file){
 
-
-    load(file)
-    X<-as.data.frame(X)
-    Y<-as.data.frame(Y)
-
-    #X Validation
-    testit::assert(paste0('X has insufficient number of predictors inputs:',as.character(ncol(X))),{ncol(X)>2})
-    testit::assert(paste0('X has insufficient number of observations:',as.character(nrow(X))),{nrow(X)>0})
-    testit::assert(paste0('Firts column of X is class ',class(X[,1]),', and cannot be coerced to integer class.'),!testit::has_error({as.integer(X[,1])}))
-    testit::assert(paste0('Second column of X is class ',class(X[,2]),', and cannot be coerced to factor class.'),!testit::has_error({as.factor(X[,2])}))
-    testit::assert('All supplied predictors inputs, except for column one and two, should be of integer or numeric class.',{all(sapply(X[,3:ncol(X)], classNumber))})
-
-    #Y validation
-    testit::assert(paste0('Y has insufficient number of predictors outputs:',as.character(ncol(Y))),{ncol(Y)>0})
-    testit::assert(paste0('Y has insufficient number of observations:',as.character(nrow(Y))),{nrow(Y)>0})
-    testit::assert('The Supplied predictor output should be of integer or numeric class.',{classNumber(Y[,1])})
-
-    #mutual validation
-    testit::assert(paste0('X number of observations (',as.character(nrow(X)),') differs from Y (',as.character(nrow(Y)),').'),{nrow(X)!=nrow(Y)})
-    testit::assert('X and Y have independent number of NA or null observations.',{sum((complete.cases(X) & complete.cases(Y)))>0})
-
-
-}
 getDatasetSummary <- function(file){
 
   XSummary <- NULL
