@@ -25,6 +25,9 @@ assim <- function(exp,msg){
   }
 }
 
+classNumber<-function(x){
+  inherits(x,"numeric") || inherits(x,"integer")
+}
 
 # ----- FILTERS ------ #
 
@@ -98,8 +101,10 @@ authorizeToken<-function(user,token){
 
 registerUserFile <- function(col,userid,fileid){#Done
   obid <- OBID()
-  toinsert<-paste0('{"_id":{"$oid":"',obid,'"},"user":{"$oid":"',userid,'"},"file":{"$oid":"',fileid,'"}}')
-  col$insert(toinsert)
+  q<-list(list("$oid" = unbox(obid)),list("$oid" = unbox(userid)),list("$oid" = unbox(fileid)))
+  names(q)<-c("_id","user","file")
+  data<-jsonlite::toJSON(q)
+  col$insert(data)
   return(obid)
 }
 
@@ -153,15 +158,16 @@ getTokenValidation<-function(body){
 getDatasetValidation <- function(file){
 
   tryCatch({
-  assim({load(file)},'Could not load the file.')
-  assim({X<-as.data.frame(X)},'Could not load the dataframe X.')
-  assim({Y<-as.data.frame(Y)},'Could not load the dataframe Y.')
+
+  load(file)
+  X<-as.data.frame(X)
+  Y<-as.data.frame(Y)
 
   #X Validation
   assim({ncol(X)>2},paste0('X has insufficient number of predictors inputs:',as.character(ncol(X))))
   assim({nrow(X)>0},paste0('X has insufficient number of observations:',as.character(nrow(X))))
-  assim({as.integer(X[,1])},paste0('Firts column of X is class ',class(X[,1]),', and cannot be coerced to integer class.'))
-  assim({as.factor(X[,2])},paste0('Second column of X is class ',class(X[,2]),', and cannot be coerced to factor class.'))
+  assim({is.integer(X[,1])},paste0('Firts column of X is class ',class(X[,1]),', and not integer class.'))
+  assim({is.factor(X[,2])},paste0('Second column of X is class ',class(X[,2]),', and not factor class.'))
   assim({all(sapply(X[,3:ncol(X)], classNumber))},'All supplied predictors inputs, except for column one and two, should be of integer or numeric class.')
 
   #Y validation
@@ -170,7 +176,7 @@ getDatasetValidation <- function(file){
   assim({classNumber(Y[,1])},'The Supplied predictor output should be of integer or numeric class.')
 
   #mutual validation
-  assim({nrow(X)!=nrow(Y)},paste0('X number of observations (',as.character(nrow(X)),') differs from Y (',as.character(nrow(Y)),').'))
+  assim({nrow(X)==nrow(Y)},paste0('X number of observations (',as.character(nrow(X)),') differs from Y (',as.character(nrow(Y)),').'))
   assim({sum((complete.cases(X) & complete.cases(Y)))>0},'X and Y have independent number of NA or null observations.')
   out <- list(Valid = T, Message = '')
   return(out)
@@ -248,19 +254,25 @@ function(req,userid,token){
   val<-getTokenValidation(list('userid'=userid,'token'=token))
   if(val$Valid){
     ids <- MultipartDataset2GridFS(req)
-    registerUserFile(.GlobalEnv$datasets,ids$userid,ids$fileid)
+    obid<-registerUserFile(.GlobalEnv$datasets,ids$userid,ids$fileid)
+    print(obid)
+    return(obid)
   }else{
     stop(val$Message)
   }
-}
+} #Done
 
 MultipartDataset2GridFS <- function(req,grid){
   form <- Rook::Multipart$parse(req)
   assim({grepl(".RData",form$file$filename)},"Input file is not a valid .RData file.")
-  getDatasetValidation(form$file$tempfile)
-  upload <-.GlobalEnv$gridFS$write(form$file$tempfile,form$file$filename)
-  return(list(fileid = upload$id, userid = form$userid))
-}
+  val<-getDatasetValidation(form$file$tempfile)
+  if(val$Valid){
+    upload <-.GlobalEnv$gridFS$write(form$file$tempfile,form$file$filename)
+    return(list(fileid = upload$id, userid = form$userid))
+  }else{
+    stop(val$Message)
+  }
+} #Done
 
 
 
