@@ -79,6 +79,16 @@ getUserByUsername<-function(username){
 getUserByID<-function(userid){
   out<-.GlobalEnv$users$find(queryByID(userid),'{}')
   return(out)
+} #Done Verified
+
+getFileIDByObjectID<- function(col,obid){
+  col$find(queryByID(obid),'{"file":1,"_id":0}')$file
+} #Done
+
+getFileGridFS <- function(grid,fileID){
+  t <- tempfile()
+  out <- grid$read(paste0("id:", fileID),t, progress = FALSE)
+  return(t)
 } #Done
 
 # -- HELPERS -- #
@@ -240,7 +250,7 @@ function(req,res){
   body<-jsonlite::fromJSON(req$postBody)
   query<-queryByID(body$userid, field="user")
   fields<-'{"_id":1}'
-  return(list(ids=.GlobalEnv$datasets$find(query,fields))$'_id')
+  return(list(ids=.GlobalEnv$datasets$find(query,fields)$'_id'))
 } #Done
 
 # -- Load -- #
@@ -281,6 +291,20 @@ MultipartDataset2GridFS <- function(req){
 
 
 #-- Info -- #
+#* Gets dataset information in BSSEmsembler
+#* @param datasetid corresponding to the dataset which the information will be retrieved
+#* @get /datasets/info
+function(datasetid){
+
+  fileid <- getFileIDByObjectID(.GlobalEnv$datasets,datasetid)#done
+  file <- getFileGridFS(.GlobalEnv$gridFS, fileid)
+  met<-getFileMetaInfo(fileid) #done
+  sum<-getDatasetSummary(file) #done
+  val<-getDatasetValidation(file) #done
+  pls<-getDatasetPlots(file)
+  unlink(file)
+  return(list('Meta'=met,'Summary'=sum,'Validation'=val,'Plots'=pls))
+}
 
 getDatasetSummary <- function(file){
 
@@ -316,7 +340,12 @@ getHtmlBatchSummary <-function(df,cla){
 }
 
 
+getFileMetaInfo<-function(fileid){
+  .GlobalEnv$gridFS$find(queryByID(fileid),'{}')
+}
+getDatasetPlots<-function(file){
 
+}
 
 
 

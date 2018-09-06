@@ -58,39 +58,6 @@ classNumber <- function(x){
   return(inherits(x,'numeric') || inherits(x,'integer'))
 }
 
-getDatasetSummary <- function(file){
-
-  XSummary <- NULL
-  XBatchSummary <- NULL
-  YSummary <- NULL
-  YBatchSummary <- NULL
-
-  tryDo({load(file)})
-  tryDo(X<-as.data.frame(X))
-  tryDo(Y<-as.data.frame(Y))
-  tryDo({XSummary<-getHtmlSummary(X)})
-  tryDo({XBatchSummary<-getHtmlBatchSummary(X,X[,2])})
-  tryDo({YSummary<-getHtmlSummary(Y)})
-  tryDo({YSummary<-getHtmlBatchSummary(Y,X[,2])})
-  lst<-list(XSummary,XBatchSummary,YSummary,YBatchSummary)
-  names(lst)<-c('XSummary','XBatchSummary','YSummary','YBatchSummary')
-  return(lst)
-}
-getHtmlSummary <- function(df){
-  st<- summarytools::dfSummary(df, round.digits = 3)
-  stv<- summarytools::view(st,method='render',transpose =T,style="rmarkdown")
-  html<- htmltools::renderTags(stv)$html
-  return(html)
-}
-getHtmlDescriptive <-function(df){
-  st<- summarytools::descr(df)
-  stv<- summarytools::view(st,method='render',transpose =T,style="rmarkdown")
-  return( htmltools::renderTags(stv)$html)
-}
-getHtmlBatchSummary <-function(df,cla){
-  lapply(split(df,cla),getHtmlDescriptive)
-}
-
 getModelValidation <-function(file){
   tryCatch({
     out<-list()
@@ -795,22 +762,7 @@ function(userid,datasetid,configid){
 
 # -- INFO -- #
 
-#* Gets dataset information in BSSEmsembler
-#* @param datasetid corresponding to the dataset which the information will be retrieved
-#* @get /datasets/info
-function(datasetid){
-  sum <- NULL
-  val <- NULL
-  pls <-NULL #TODO: CREATE PLOTS FOR THE DATASET LOADED
 
-  fileid <- getFileIDByObjectID(.GlobalEnv$datasets,datasetid)
-  file <- getFileGridFS(.GlobalEnv$gridFS, fileid)
-  tryDo({sum<-getDatasetSummary(file)})
-  tryDo(val<-getDatasetValidation(file))
-  #TODO:   tryDo(pls<-getDatasetPlots(file))
-  unlink(file)
-  return(list('Summary'=sum,'Validation'=val,'Plots'=pls))
-}
 
 #* Gets config information in BSSEmsembler
 #* @param configsid corresponding to the config document which the information will be retrieved
