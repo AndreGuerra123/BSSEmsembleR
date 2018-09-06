@@ -289,8 +289,8 @@ MultipartDataset2GridFS <- function(req){
 
 #-- Delete -- #
 #* Gets dataset information in BSSEmsembler
-#* @get /datasets/info
-function(datasetid){
+#* @get /datasets/delete
+function(req){
   body <- jsonlite::fromJSON(req$postBody)
   .GlobalEnv$datasets$remove(queryByID(body$datasetid), just_one = TRUE)
   .GlobalEnv$gridFS$remove(body$datasetid)
